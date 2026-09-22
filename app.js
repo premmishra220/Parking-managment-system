@@ -1,26 +1,28 @@
 const app = document.querySelector('#app');
 const toastRegion = document.querySelector('#toast-region');
+const apiBaseUrl = String(window.PARK_CONNECT_CONFIG?.apiBaseUrl || '').replace(/\/$/, '');
+const apiUrl = path => `${apiBaseUrl}${path}`;
 const storage = {
   get(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } },
   set(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
 };
 const seed = {
   locations: [
-    { id: 1, name: 'Downtown Parking Hub', address: '42 Market Street', distance: '0.3 mi', available: 28, total: 80, price: 4.5, rating: 4.8, status: 'Open', features: ['Security', 'CCTV', 'EV charging'], tone: '' },
-    { id: 2, name: 'City Center Smart Parking', address: '18 Grand Avenue', distance: '0.6 mi', available: 12, total: 55, price: 3.75, rating: 4.6, status: 'Open', features: ['Security', 'CCTV'], tone: 'sunset' },
-    { id: 3, name: 'Metro Station Parking', address: '7 Transit Way', distance: '0.9 mi', available: 41, total: 120, price: 2.9, rating: 4.5, status: 'Open', features: ['CCTV', 'EV charging'], tone: 'light' },
-    { id: 4, name: 'Business District Parking', address: '90 Union Boulevard', distance: '1.2 mi', available: 7, total: 60, price: 5.25, rating: 4.9, status: 'Open', features: ['Security', 'CCTV', 'EV charging'], tone: '' },
-    { id: 5, name: 'Mall Parking Zone', address: '150 Riverside Drive', distance: '1.6 mi', available: 63, total: 200, price: 2.5, rating: 4.4, status: 'Open', features: ['CCTV'], tone: 'sunset' }
+    { id: 1, name: '1st Year Building', address: '42 Market Street', distance: '0.3 mi', available: 28, total: 80, price: 4.5, rating: 4.8, status: 'Open', features: ['Security', 'CCTV', 'EV charging'], tone: '' },
+    { id: 2, name: '2nd Year Building', address: '18 Grand Avenue', distance: '0.6 mi', available: 12, total: 55, price: 3.75, rating: 4.6, status: 'Open', features: ['Security', 'CCTV'], tone: 'sunset' },
+    { id: 3, name: 'Library Building', address: '7 Transit Way', distance: '0.9 mi', available: 41, total: 120, price: 2.9, rating: 4.5, status: 'Open', features: ['CCTV', 'EV charging'], tone: 'light' }
   ],
   bookings: [
-    { id: 'PK-240801', parking: 'Downtown Parking Hub', slot: 'B12', vehicle: 'TN 09 AB 1234', date: '2026-09-07', entry: '09:30', exit: '12:30', amount: 15.2, status: 'Upcoming' },
-    { id: 'PK-240734', parking: 'Metro Station Parking', slot: 'C04', vehicle: 'TN 09 AB 1234', date: '2026-08-29', entry: '14:00', exit: '16:00', amount: 6.7, status: 'Completed' },
-    { id: 'PK-240699', parking: 'Mall Parking Zone', slot: 'A18', vehicle: 'TN 09 AB 1234', date: '2026-08-19', entry: '11:00', exit: '13:00', amount: 5.7, status: 'Completed' }
+    { id: 'PK-240801', parking: '1st Year Building', slot: 'B12', vehicle: 'TN 09 AB 1234', date: '2026-09-07', entry: '09:30', exit: '12:30', amount: 15.2, status: 'Upcoming' },
+    { id: 'PK-240734', parking: 'Library Building', slot: 'C04', vehicle: 'TN 09 AB 1234', date: '2026-08-29', entry: '14:00', exit: '16:00', amount: 6.7, status: 'Completed' },
+    { id: 'PK-240699', parking: '2nd Year Building', slot: 'A18', vehicle: 'TN 09 AB 1234', date: '2026-08-19', entry: '11:00', exit: '13:00', amount: 5.7, status: 'Completed' }
   ],
   slots: {}
 };
 function initialize() {
-  if (!storage.get('pm_locations', null)) storage.set('pm_locations', seed.locations);
+  const storedLocations = storage.get('pm_locations', null);
+  const locations = seed.locations.map(seedLocation => ({ ...seedLocation, ...(storedLocations || []).find(location => location.id === seedLocation.id), name: seedLocation.name }));
+  storage.set('pm_locations', locations);
   if (!storage.get('pm_bookings', null)) storage.set('pm_bookings', seed.bookings);
   if (!storage.get('pm_slots', null)) storage.set('pm_slots', {});
 }
@@ -30,6 +32,9 @@ const currentUser = () => storage.get('pm_user', null);
 const route = () => location.hash.replace('#/', '') || (currentUser() ? 'dashboard' : 'login');
 const money = value => `$${Number(value || 0).toFixed(2)}`;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
+function normalizeDisplayedNames() {
+  app.innerHTML = app.innerHTML.replace(/Parkly/gi, 'Park Connect').replace(/Secure your spot with a demo payment\./g, 'Secure your spot with a secure Razorpay payment.').replace(/This demo does not process real payments\./g, 'Payments are processed securely in Razorpay test mode.').replace(/Downtown Parking Hub|City Center Smart Parking|Metro Station Parking|Metro Station|Business District Parking|Mall Parking Zone/g, match => ({ 'Downtown Parking Hub': '1st Year Building', 'City Center Smart Parking': '2nd Year Building', 'Metro Station Parking': 'Library Building', 'Metro Station': 'Library Building', 'Business District Parking': '1st Year Building', 'Mall Parking Zone': '2nd Year Building' }[match]));
+}
 const initials = name => (name || 'Demo User').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
 function displayNameFromEmail(email) {
   const localPart = email.split('@')[0].replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._-]+/g, ' ').replace(/\d+/g, ' ').replace(/[^a-zA-Z ]/g, ' ').trim().toLowerCase();
@@ -44,7 +49,7 @@ function displayNameFromEmail(email) {
   return words[0] ? words[0][0].toUpperCase() + words[0].slice(1) : 'Demo User';
 }
 function toast(message, error = false) { const node = document.createElement('div'); node.className = `toast${error ? ' error' : ''}`; node.textContent = message; toastRegion.append(node); setTimeout(() => node.remove(), 3200); }
-function statusClass(status) { return status === 'Completed' || status === 'Confirmed' ? 'success' : status === 'Upcoming' || status === 'Pending' ? 'warning' : status === 'Cancelled' ? 'danger' : 'neutral'; }
+function statusClass(status) { return status === 'Completed' || status === 'Confirmed' || status === 'Confirmed/Paid' ? 'success' : status === 'Upcoming' || status === 'Pending' ? 'warning' : status === 'Cancelled' || status === 'Failed' ? 'danger' : 'neutral'; }
 function layout(content, active = 'dashboard') {
   const user = currentUser() || { name: 'Demo User', role: 'user' };
   const admin = user.role === 'admin';
@@ -70,7 +75,63 @@ function reports() { return layout(`<section class="page"><div class="page-headi
 function settings() { return layout(`<section class="page"><div class="page-heading"><div><h1>Settings</h1><p class="subtitle">Make Parkly work the way you do.</p></div></div><div class="grid-2"><div class="card"><div class="card-header"><h2>Profile settings</h2></div><div class="form-grid"><div class="field"><label>Full name</label><input value="${escapeHtml(currentUser()?.name || 'Alex Morgan')}"></div><div class="field full"><label>Email address</label><input value="${escapeHtml(currentUser()?.email || 'demo@parking.com')}"></div><div class="field full"><label>Phone number</label><input placeholder="+1 555 012 3456"></div></div><button class="btn btn-primary" style="margin-top:18px" id="save-settings">Save changes</button></div><div class="card"><div class="card-header"><h2>Preferences</h2></div><div class="activity"><label class="check-row"><span>Booking reminders</span><input type="checkbox" checked></label><label class="check-row"><span>Weekly activity summary</span><input type="checkbox" checked></label><label class="check-row"><span>Dark mode</span><input type="checkbox" id="dark-mode"></label></div></div></div></section>`, 'settings'); }
 function login() { app.innerHTML = `<div class="login-page"><section class="login-showcase"><div class="brand"><span class="brand-mark"></span> parkly</div><h1>More time.<br><em style="color:var(--mint);font-style:normal">Less circling.</em></h1><p>One calm, connected workspace for finding, managing and improving every parking experience.</p><div class="feature-list"><div class="feature"><i>✓</i> Reserve in under a minute</div><div class="feature"><i>✓</i> Real-time availability</div><div class="feature"><i>✓</i> Receipts that stay organized</div></div></section><section class="login-panel"><div class="login-box"><div class="login-brand">Welcome back</div><h2>Sign in to Parkly</h2><p class="subtitle">Your parking workspace is ready when you are.</p><div class="demo-box"><strong>Demo access</strong><br>User: demo@parking.com / 123456<br>Admin: admin@parking.com / admin123</div><form class="login-form" id="login-form"><div class="field"><label>Email address</label><input name="email" type="email" required placeholder="you@example.com"></div><div class="field"><label>Password</label><input name="password" type="password" required placeholder="••••••••"></div><div class="check-row"><label><input type="checkbox"> Remember me</label><a class="link" href="#" id="forgot">Forgot password?</a></div><button class="btn btn-primary btn-block" type="submit">Sign in →</button></form><p class="muted-note">New to Parkly? <a class="link" href="#" id="create-account">Create an account</a></p></div></section></div>`; }
 function showModal(location = {}) { const isEdit = Boolean(location.id); app.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="modal"><div class="modal"><div class="card-header"><h2>${isEdit ? 'Edit parking' : 'Add parking'}</h2><button class="icon-button" id="close-modal">×</button></div><form id="location-form"><div class="form-grid"><div class="field full"><label>Parking name</label><input name="name" required value="${escapeHtml(location.name || '')}"></div><div class="field full"><label>Address</label><input name="address" required value="${escapeHtml(location.address || '')}"></div><div class="field"><label>Total slots</label><input name="total" type="number" required value="${location.total || 50}"></div><div class="field"><label>Price / hour</label><input name="price" type="number" step=".25" required value="${location.price || 4}"></div></div><div class="modal-actions"><button type="button" class="btn btn-outline" id="cancel-modal">Cancel</button><button class="btn btn-primary">Save location</button></div></form></div></div>`); }
+function updatePendingBooking(id, changes) { const bookings = storage.get('pm_bookings', seed.bookings); storage.set('pm_bookings', bookings.map(booking => booking.id === id ? { ...booking, ...changes } : booking)); }
+function enhancePaymentPage() {
+  const form = document.querySelector('#payment-form');
+  if (!form || form.dataset.gatewayReady) return;
+  form.dataset.gatewayReady = 'true';
+  const methods = document.querySelector('.payment-methods');
+  methods?.insertAdjacentHTML('beforeend', '<button class="method" type="button" data-method="netbanking">Net Banking</button><button class="method" type="button" data-method="wallet">Wallets</button>');
+  const status = document.createElement('p');
+  status.id = 'payment-status';
+  status.className = 'subtitle';
+  status.textContent = 'Payment status: Ready';
+  form.before(status);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const submit = form.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    submit.textContent = 'Creating secure order...';
+    const booking = { ...state.booking, id: `PK-${Math.floor(100000 + Math.random() * 899999)}`, status: 'Pending', paymentStatus: 'pending' };
+    try {
+      const orderResponse = await fetch(apiUrl('/api/payments/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ booking }) });
+      const order = await orderResponse.json();
+      if (!orderResponse.ok) throw new Error(order.error || 'Unable to create payment order.');
+      const pendingBooking = { ...booking, id: order.bookingId, amount: order.amount, orderId: order.orderId };
+      storage.set('pm_bookings', [pendingBooking, ...storage.get('pm_bookings', seed.bookings)]);
+      status.textContent = `Payment status: Pending · Order ${order.orderId}`;
+      if (!window.Razorpay) throw new Error('Razorpay Checkout could not be loaded.');
+      const checkout = new window.Razorpay({ key: order.keyId, amount: Math.round(order.amount * 100), currency: order.currency, name: 'Park Connect', description: `${pendingBooking.parking} · ${pendingBooking.slot}`, order_id: order.orderId, prefill: { name: pendingBooking.name, contact: pendingBooking.phone }, theme: { color: '#17324a' }, handler: async payment => {
+        try {
+          const verifyResponse = await fetch(apiUrl('/api/payments/verify'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ booking: pendingBooking, razorpay_order_id: payment.razorpay_order_id, razorpay_payment_id: payment.razorpay_payment_id, razorpay_signature: payment.razorpay_signature }) });
+          const verified = await verifyResponse.json();
+          if (!verifyResponse.ok) throw new Error(verified.error || 'Payment verification failed.');
+          const bookings = storage.get('pm_bookings', seed.bookings).filter(item => item.id !== pendingBooking.id);
+          storage.set('pm_bookings', [verified.booking, ...bookings]);
+          storage.set('pm_last_booking', verified.booking);
+          status.textContent = 'Payment status: Paid and verified';
+          location.hash = '#/confirmation';
+        } catch (error) {
+          updatePendingBooking(pendingBooking.id, { status: 'Failed', paymentStatus: 'failed' });
+          status.textContent = `Payment status: Failed · ${error.message}`;
+          submit.disabled = false;
+          submit.textContent = 'Try payment again';
+        }
+      }});
+      checkout.on('payment.failed', failure => { updatePendingBooking(pendingBooking.id, { status: 'Failed', paymentStatus: 'failed', paymentError: failure.error?.description || 'Payment failed' }); status.textContent = `Payment status: Failed · ${failure.error?.description || 'Payment failed'}`; submit.disabled = false; submit.textContent = 'Try payment again'; });
+      checkout.on('modal.dismiss', () => { updatePendingBooking(pendingBooking.id, { status: 'Cancelled', paymentStatus: 'cancelled' }); status.textContent = 'Payment status: Cancelled'; submit.disabled = false; submit.textContent = 'Try payment again'; });
+      checkout.open();
+    } catch (error) {
+      status.textContent = `Payment status: Failed · ${error.message}`;
+      submit.disabled = false;
+      submit.textContent = 'Try payment again';
+    }
+  }, true);
+}
 function bind() {
+  enhancePaymentPage();
+  document.querySelector('[name="phone"]')?.setAttribute('pattern', '.{8,}');
   document.querySelectorAll('[data-route]').forEach(button => button.addEventListener('click', () => { location.hash = `#/${button.dataset.route}`; }));
   document.querySelector('#mobile-menu')?.addEventListener('click', () => document.querySelector('#sidebar').classList.toggle('open'));
   document.querySelector('#logout')?.addEventListener('click', () => { localStorage.removeItem('pm_user'); location.hash = '#/login'; render(); });
@@ -91,7 +152,7 @@ function bind() {
   document.querySelector('#save-settings')?.addEventListener('click', () => toast('Settings saved successfully'));
   document.querySelector('#dark-mode')?.addEventListener('change', event => { document.body.classList.toggle('dark', event.target.checked); storage.set('pm_dark', event.target.checked); });
 }
-function render() { if (!currentUser() && route() !== 'login') { location.hash = '#/login'; return; } const views = { dashboard, parking, slots, booking: bookingPage, payment, confirmation, bookings, admin, 'admin-locations': adminLocations, 'admin-slots': adminSlots, 'admin-bookings': adminBookings, reports, settings }; if (route() === 'login') return login(); app.innerHTML = views[route()] ? views[route()]() : dashboard(); bind(); if (storage.get('pm_dark', false)) document.body.classList.add('dark'); }
+function render() { if (!currentUser() && route() !== 'login') { location.hash = '#/login'; return; } const views = { dashboard, parking, slots, booking: bookingPage, payment, confirmation, bookings, admin, 'admin-locations': adminLocations, 'admin-slots': adminSlots, 'admin-bookings': adminBookings, reports, settings }; if (route() === 'login') { login(); normalizeDisplayedNames(); return; } app.innerHTML = views[route()] ? views[route()]() : dashboard(); normalizeDisplayedNames(); bind(); if (storage.get('pm_dark', false)) document.body.classList.add('dark'); }
 window.addEventListener('hashchange', render); render();
 document.addEventListener('submit', event => { if (event.target.id !== 'login-form') return; event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); const adminUser = data.email.toLowerCase().startsWith('admin'); storage.set('pm_user', { name: displayNameFromEmail(data.email), email: data.email, role: adminUser ? 'admin' : 'user' }); location.hash = adminUser ? '#/admin' : '#/dashboard'; render(); });
 document.addEventListener('click', event => { if (event.target.id === 'forgot') { event.preventDefault(); toast('Demo mode: password reset is not connected.'); } if (event.target.id === 'create-account') { event.preventDefault(); toast('Demo mode: use the provided login credentials.'); } });
